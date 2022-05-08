@@ -7,6 +7,9 @@ import time
 from datetime import datetime
 from azure.iot.device import IoTHubModuleClient
 
+PREDICTION_URL = 'http://xxxx/image'
+PREDICTION_INTERVAL = 10
+
 # Event indicating client stop
 stop_event = threading.Event()
 
