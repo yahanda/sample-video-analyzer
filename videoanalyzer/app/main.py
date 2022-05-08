@@ -1,47 +1,84 @@
+import sys
+import signal
+import threading
 import cv2
 import requests
-import io
-from PIL import Image
+import time
 from datetime import datetime
-import asyncio
+from azure.iot.device import IoTHubModuleClient
 
-prediction_url = "https://japaneast.api.cognitive.microsoft.com/customvision/v3.0/Prediction/xxxxxxxxxxxxxxxxxxxxxx/detect/iterations/Iteration1/image"
-prediction_interval_msec = 1000
+# Event indicating client stop
+stop_event = threading.Event()
 
 def log_msg(msg):
     print("{}: {}".format(datetime.now(), msg))
 
-def cv2pil(image):
-    img = image.copy()
-    if img.ndim == 2:
-        pass
-    elif img.shape[2] == 3:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    elif pilImage.shape[2] == 4:
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
-    pilImage = Image.fromarray(img)
-    return pilImage
+def create_client():
+    client = IoTHubModuleClient.create_from_edge_environment()
 
-if __name__ == '__main__':
+    # Define function for handling received twin patches
+    async def receive_twin_patch_handler(twin_patch):
+        global PREDICTION_URL
+        global PREDICTION_INTERVAL
+        print("Twin Patch received")
+        print("     {}".format(twin_patch))
+        if "predictionUrl" in twin_patch:
+            PREDICTION_URL = twin_patch["predictionUrl"]
+        if "predictionInterval" in twin_patch:
+            PREDICTION_INTERVAL = twin_patch["predictionInterval"]
+
+    try:
+        # Set handler on the client
+        client.on_twin_desired_properties_patch_received = receive_twin_patch_handler
+    except:
+        # Cleanup if failure occurs
+        client.shutdown()
+        raise
+
+    return client
+
+def main():
+    if not sys.version >= "3.5.3":
+        raise Exception( "The sample requires python 3.5.3+. Current version of Python: %s" % sys.version )
+    print ( "IoT Hub Client for Python" )
+
+    # NOTE: Client is implicitly connected due to the handler being set on it
+    client = create_client()
+
+    # Define a handler to cleanup when module is is terminated by Edge
+    def module_termination_handler(signal, frame):
+        print ("IoTHubClient sample stopped by Edge")
+        stop_event.set()
+
+    # Set the Edge termination handler
+    signal.signal(signal.SIGTERM, module_termination_handler)
+
     try:
         capture = cv2.VideoCapture(0) # /dev/video*
         while(capture.isOpened()): # open
+            start = time.time()
+            log_msg("predict start")
             retval, frame = capture.read() # capture
             if retval is False:
                 raise IOError
 
-            pilimg = cv2pil(frame)
-            imageData = io.BytesIO()
-            pilimg.save(imageData,'JPEG')
-            imageData = imageData.getvalue()
+            ret, encoded = cv2.imencode('.jpg', frame)
+            file = {'file': encoded.tobytes()}
 
-            file = {'file': imageData}
-            payload = {'Prediction-Key': 'xxxxxxxxxxxxxxxxxxxxx'}
-            res = requests.post(prediction_url, params=payload, files=file)
-            #res = requests.post(prediction_url, files=file)
+            res = requests.post(PREDICTION_URL, files=file)
             log_msg(res.json())
 
-            asyncio.sleep(prediction_interval_msec / 1000)
+            elapsed_time  = time.time() - start
+            if(elapsed_time < PREDICTION_INTERVAL):
+                time.sleep(PREDICTION_INTERVAL - elapsed_time)
 
+    except Exception as e:
+        print("Unexpected error %s " % e)
+        raise
+    
     finally:
-        capture.release () # VideoCaptureのClose
+        print("Shutting down IoT Hub Client...")
+        capture.release()
+
+if __name__ == '__main__':
+    main()
