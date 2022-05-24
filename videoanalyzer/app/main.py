@@ -22,7 +22,7 @@ def create_client():
     client = IoTHubModuleClient.create_from_edge_environment()
 
     # Define function for handling received twin patches
-    async def receive_twin_patch_handler(twin_patch):
+    def receive_twin_patch_handler(twin_patch):
         global PREDICTION_URL
         global PREDICTION_INTERVAL
         print("Twin Patch received")
@@ -35,6 +35,13 @@ def create_client():
     try:
         # Set handler on the client
         client.on_twin_desired_properties_patch_received = receive_twin_patch_handler
+
+        client.connect()
+
+        twin = client.get_twin()
+        print("Twin at startup is")
+        print(twin)
+
     except:
         # Cleanup if failure occurs
         client.shutdown()
@@ -42,12 +49,9 @@ def create_client():
 
     return client
 
-async def run_sample(client):
+def run_sample(client):
 
-    await client.connect()
-    twin = client.get_twin()
-    print("Twin at startup is")
-    print(twin)
+    client.connect()
 
     capture = cv2.VideoCapture(0) # /dev/video*
     while(capture.isOpened()): # open
@@ -65,36 +69,22 @@ async def run_sample(client):
 
         elapsed_time  = time.time() - start
         if(elapsed_time < PREDICTION_INTERVAL):
-            await asyncio.sleep(PREDICTION_INTERVAL - elapsed_time)
+            time.sleep(PREDICTION_INTERVAL - elapsed_time)
 
 
 def main():
-    if not sys.version >= "3.5.3":
-        raise Exception( "The sample requires python 3.5.3+. Current version of Python: %s" % sys.version )
     print ( "IoT Hub Client for Python" )
 
-    # NOTE: Client is implicitly connected due to the handler being set on it
     client = create_client()
 
-    # Define a handler to cleanup when module is is terminated by Edge
-    def module_termination_handler(signal, frame):
-        print ("IoTHubClient sample stopped by Edge")
-        stop_event.set()
-
-    # Set the Edge termination handler
-    signal.signal(signal.SIGTERM, module_termination_handler)
-
-    # Run the sample
-    loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(run_sample(client))
+        run_sample(client)
     except Exception as e:
         print("Unexpected error %s " % e)
         raise
     finally:
         print("Shutting down IoT Hub Client...")
-        loop.run_until_complete(client.shutdown())
-        loop.close()
+        client.shutdown()
 
 
 if __name__ == "__main__":
