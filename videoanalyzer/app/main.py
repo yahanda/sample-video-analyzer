@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 from azure.iot.device import IoTHubModuleClient
 
+# global value
 PREDICTION_URL = 'http://xxxx/image'
 PREDICTION_INTERVAL = 10
 
@@ -47,6 +48,10 @@ def main():
 
     # NOTE: Client is implicitly connected due to the handler being set on it
     client = create_client()
+    client.connect()
+    twin = client.get_twin()
+    print("Twin at startup is")
+    print(twin)
 
     # Define a handler to cleanup when module is is terminated by Edge
     def module_termination_handler(signal, frame):
