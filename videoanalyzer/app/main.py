@@ -7,6 +7,8 @@ from azure.iot.device import IoTHubModuleClient
 # Global variable
 PREDICTION_URL = 'http://xxxx/image'
 PREDICTION_INTERVAL = 10
+IS_RECORDING = True
+RECORDING_LENGTH = 60
 
 def log_msg(msg):
     print("{}: {}".format(datetime.now(), msg))
@@ -41,22 +43,42 @@ def predict(client):
     client.connect()
 
     capture = cv2.VideoCapture(0) # /dev/video*
-    while(capture.isOpened()): # open
-        start = time.time()
-        log_msg("predict start")
-        retval, frame = capture.read() # capture
-        if retval is False:
-            raise IOError
 
-        ret, encoded = cv2.imencode('.jpg', frame)
-        file = {'imageData': encoded.tobytes()}
+    fps = int(capture.get(cv2.CAP_PROP_FPS)) 
+    w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)) 
+    h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))        
+    fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v') 
 
-        res = requests.post(PREDICTION_URL, files=file)
-        log_msg(res.json())
+    while True:
+        start_recording = time.time()
+        start_prediction = time.time()
+        video_filename = start_recording.strftime('%Y%m%d_%H%M%S') + '.mp4'
+        writer = cv2.VideoWriter(video_filename, fourcc, fps, (w, h))
 
-        elapsed_time  = time.time() - start
-        if(elapsed_time < PREDICTION_INTERVAL):
-            time.sleep(PREDICTION_INTERVAL - elapsed_time)
+        while(capture.isOpened()): # open
+            retval, frame = capture.read() # capture
+            if retval is False:
+                raise IOError
+
+            if time.time() - start_prediction > PREDICTION_INTERVAL:
+                ret, encoded = cv2.imencode('.jpg', frame)
+                file = {'imageData': encoded.tobytes()}
+
+                res = requests.post(PREDICTION_URL, files=file)
+                log_msg(res.json())
+                start_prediction = time.time()
+
+            if IS_RECORDING:
+                writer.write(frame)
+                if time.time() - start_recording > RECORDING_LENGTH:
+                    log_msg("recorded clips of video as mp4 files")
+                    writer.release()
+                    break
+
+    #        elapsed_time  = time.time() - start
+    #        if(elapsed_time < PREDICTION_INTERVAL):
+    #            time.sleep(PREDICTION_INTERVAL - elapsed_time)
+    #    capture.release()
 
 
 def main():
