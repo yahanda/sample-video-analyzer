@@ -58,7 +58,7 @@ def run_sample(client):
             raise IOError
 
         ret, encoded = cv2.imencode('.jpg', frame)
-        file = {'file': encoded.tobytes()}
+        file = {'imageData': encoded.tobytes()}
 
         res = requests.post(PREDICTION_URL, files=file)
         log_msg(res.json())
