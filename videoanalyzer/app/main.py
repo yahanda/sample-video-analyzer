@@ -22,7 +22,7 @@ def create_client():
     client = IoTHubModuleClient.create_from_edge_environment()
 
     # Define function for handling received twin patches
-    def receive_twin_patch_handler(twin_patch):
+    async def receive_twin_patch_handler(twin_patch):
         global PREDICTION_URL
         global PREDICTION_INTERVAL
         print("Twin Patch received")
