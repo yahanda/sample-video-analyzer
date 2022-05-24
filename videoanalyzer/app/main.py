@@ -42,7 +42,7 @@ def create_client():
 
     return client
 
-def run_sample(client):
+async def run_sample(client):
 
     twin = client.get_twin()
     print("Twin at startup is")
