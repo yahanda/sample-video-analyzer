@@ -52,7 +52,8 @@ def predict(client):
     while True:
         start_recording = time.time()
         start_prediction = time.time()
-        video_filename = start_recording.strftime('%Y%m%d_%H%M%S') + '.mp4'
+        now = datetime.now()
+        video_filename = now.strftime('%Y%m%d_%H%M%S') + '.mp4'
         writer = cv2.VideoWriter(video_filename, fourcc, fps, (w, h))
 
         while(capture.isOpened()): # open
