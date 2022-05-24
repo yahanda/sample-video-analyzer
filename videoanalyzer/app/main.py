@@ -22,7 +22,7 @@ def create_client():
     client = IoTHubModuleClient.create_from_edge_environment()
 
     # Define function for handling received twin patches
-    async def receive_twin_patch_handler(twin_patch):
+    def receive_twin_patch_handler(twin_patch):
         global PREDICTION_URL
         global PREDICTION_INTERVAL
         print("Twin Patch received")
@@ -44,6 +44,7 @@ def create_client():
 
 async def run_sample(client):
 
+    await client.connect()
     twin = client.get_twin()
     print("Twin at startup is")
     print(twin)
@@ -64,7 +65,7 @@ async def run_sample(client):
 
         elapsed_time  = time.time() - start
         if(elapsed_time < PREDICTION_INTERVAL):
-            time.sleep(PREDICTION_INTERVAL - elapsed_time)
+            await asyncio.sleep(PREDICTION_INTERVAL - elapsed_time)
 
 
 def main():
