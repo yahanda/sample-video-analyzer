@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import signal
 import threading
@@ -7,7 +8,7 @@ import time
 from datetime import datetime
 from azure.iot.device import IoTHubModuleClient
 
-# global value
+# Global variable
 PREDICTION_URL = 'http://xxxx/image'
 PREDICTION_INTERVAL = 10
 
@@ -41,6 +42,32 @@ def create_client():
 
     return client
 
+def run_sample(client):
+    client.connect()
+
+    twin = client.get_twin()
+    print("Twin at startup is")
+    print(twin)
+
+    capture = cv2.VideoCapture(0) # /dev/video*
+    while(capture.isOpened()): # open
+        start = time.time()
+        log_msg("predict start")
+        retval, frame = capture.read() # capture
+        if retval is False:
+            raise IOError
+
+        ret, encoded = cv2.imencode('.jpg', frame)
+        file = {'file': encoded.tobytes()}
+
+        res = requests.post(PREDICTION_URL, files=file)
+        log_msg(res.json())
+
+        elapsed_time  = time.time() - start
+        if(elapsed_time < PREDICTION_INTERVAL):
+            time.sleep(PREDICTION_INTERVAL - elapsed_time)
+
+
 def main():
     if not sys.version >= "3.5.3":
         raise Exception( "The sample requires python 3.5.3+. Current version of Python: %s" % sys.version )
@@ -48,10 +75,6 @@ def main():
 
     # NOTE: Client is implicitly connected due to the handler being set on it
     client = create_client()
-    client.connect()
-    twin = client.get_twin()
-    print("Twin at startup is")
-    print(twin)
 
     # Define a handler to cleanup when module is is terminated by Edge
     def module_termination_handler(signal, frame):
@@ -61,32 +84,18 @@ def main():
     # Set the Edge termination handler
     signal.signal(signal.SIGTERM, module_termination_handler)
 
+    # Run the sample
+    loop = asyncio.get_event_loop()
     try:
-        capture = cv2.VideoCapture(0) # /dev/video*
-        while(capture.isOpened()): # open
-            start = time.time()
-            log_msg("predict start")
-            retval, frame = capture.read() # capture
-            if retval is False:
-                raise IOError
-
-            ret, encoded = cv2.imencode('.jpg', frame)
-            file = {'file': encoded.tobytes()}
-
-            res = requests.post(PREDICTION_URL, files=file)
-            log_msg(res.json())
-
-            elapsed_time  = time.time() - start
-            if(elapsed_time < PREDICTION_INTERVAL):
-                time.sleep(PREDICTION_INTERVAL - elapsed_time)
-
+        loop.run_until_complete(run_sample(client))
     except Exception as e:
         print("Unexpected error %s " % e)
         raise
-    
     finally:
         print("Shutting down IoT Hub Client...")
-        capture.release()
+        loop.run_until_complete(client.shutdown())
+        loop.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
