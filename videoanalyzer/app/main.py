@@ -1,7 +1,3 @@
-import asyncio
-import sys
-import signal
-import threading
 import cv2
 import requests
 import time
@@ -11,9 +7,6 @@ from azure.iot.device import IoTHubModuleClient
 # Global variable
 PREDICTION_URL = 'http://xxxx/image'
 PREDICTION_INTERVAL = 10
-
-# Event indicating client stop
-stop_event = threading.Event()
 
 def log_msg(msg):
     print("{}: {}".format(datetime.now(), msg))
@@ -36,12 +29,6 @@ def create_client():
         # Set handler on the client
         client.on_twin_desired_properties_patch_received = receive_twin_patch_handler
 
-        client.connect()
-
-        twin = client.get_twin()
-        print("Twin at startup is")
-        print(twin)
-
     except:
         # Cleanup if failure occurs
         client.shutdown()
@@ -49,7 +36,7 @@ def create_client():
 
     return client
 
-def run_sample(client):
+def predict(client):
 
     client.connect()
 
@@ -78,7 +65,7 @@ def main():
     client = create_client()
 
     try:
-        run_sample(client)
+        predict(client)
     except Exception as e:
         print("Unexpected error %s " % e)
         raise
