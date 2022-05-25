@@ -1,4 +1,7 @@
 # sample-video-analyzer
+Sample IoT Edge module for building an AI-powered video analytics solution from live video.
+
+![aod](https://user-images.githubusercontent.com/58975407/170159267-b24e8b64-ac7a-4ec2-bdda-687bcf3f53b8.png)
 
 ## Build
 
